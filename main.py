@@ -1,4 +1,6 @@
-import requests, sys
+import requests
+from multiprocessing.dummy import Pool
+import xlsxwriter
 
 
 def get_price(site='sg.godaddy.com/zh', domain='how-much-is-this-domain-on-godaddy.com', currency='CNY'):
@@ -12,18 +14,25 @@ def get_price(site='sg.godaddy.com/zh', domain='how-much-is-this-domain-on-godad
         'currency': currency
     }
     url = 'https://' + site + '/domainsapi/v1/search/exact'
-    r = requests.get(url, params, cookies=cookies)
-    data = r.json()
-    if data['ExactMatchDomain']['IsAvailable']:
-        return data['Products'][0]['PriceInfo']['CurrentPriceDisplay']
-    else:
-        return None
+    try:
+        r = requests.get(url, params, cookies=cookies)
+        data = r.json()
+        if data['ExactMatchDomain']['IsAvailable']:
+            price = data['Products'][0]['PriceInfo']['CurrentPriceDisplay']
+        else:
+            price = None
+        print(price)
+        return price
+    except Exception as e:
+        print("Error at", r.url)
+        raise(e)
+        return type(e).__name__;
 
 
 def get_domain_suffix_list():
     url = 'http://data.iana.org/TLD/tlds-alpha-by-domain.txt'
     text = requests.get(url).text
-    return map(lambda s: s.lower(), text.splitlines()[1:])
+    return list(map(lambda s: s.lower(), text.splitlines()[1:]))
 
 
 def get_site_list():
@@ -87,16 +96,28 @@ def get_site_list():
     ]
 
 
+def proc(task):
+    return (task[0], task[1], get_price(task[2], task[3]))
+
+
 test_domain = '499e55e57a45'
 domain_suffix_list = get_domain_suffix_list()
 site_list = get_site_list()
-print('\t')
-for site in site_list:
-    print(site[:site.find('.')] + (site[site.find('/'):] if site.find('/') >= 0 else ''), end='\t')
-print()
-for suffix in domain_suffix_list:
-    print(suffix, end='\t')
-    for site in site_list:
-        print(get_price(site, test_domain + suffix), end='\t')
-        sys.stdout.flush()
-    print()
+print('Total:', len(domain_suffix_list) * len(site_list))
+input()
+pool = Pool(50)
+tasks = [(i, j, site, test_domain + '.' + suffix)
+         for i, suffix in enumerate(domain_suffix_list)
+         for j, site in enumerate(site_list)]
+results = pool.map(proc, tasks)
+pool.close()
+pool.join()
+workbook = xlsxwriter.Workbook('prices.xlsx')
+worksheet = workbook.add_worksheet()
+for i, site in enumerate(site_list):
+    worksheet.write(0, i + 1, site[:site.find('.')] + (site[site.find('/'):] if site.find('/') >= 0 else ''))
+for i, suffix in enumerate(domain_suffix_list):
+    worksheet.write(i + 1, 0, suffix)
+for i, j, price in results:
+    worksheet.write(i + 1, j + 1, price)
+workbook.close()
