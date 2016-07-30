@@ -1,5 +1,5 @@
 import requests
-from multiprocessing.dummy import Pool
+from multiprocessing.pool import ThreadPool as Pool
 import xlsxwriter
 
 
@@ -21,10 +21,9 @@ def get_price(site='sg.godaddy.com/zh', domain='how-much-is-this-domain-on-godad
             price = data['Products'][0]['PriceInfo']['CurrentPriceDisplay']
         else:
             price = None
-        print(price)
         return price
     except Exception as e:
-        print("Error at", r.url)
+        print("Error")
         return type(e).__name__;
 
 
@@ -96,7 +95,10 @@ def get_site_list():
 
 
 def proc(task):
-    return (task[0], task[1], get_price(task[2], task[3]))
+    print("Processing", task[3], "at", task[2])
+    price = get_price(task[2], task[3])
+    print(price, task[3], "at", task[2])
+    return (task[0], task[1], price)
 
 
 test_domain = '499e55e57a45'
