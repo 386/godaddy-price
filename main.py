@@ -25,7 +25,6 @@ def get_price(site='sg.godaddy.com/zh', domain='how-much-is-this-domain-on-godad
         return price
     except Exception as e:
         print("Error at", r.url)
-        raise(e)
         return type(e).__name__;
 
 
@@ -104,7 +103,6 @@ test_domain = '499e55e57a45'
 domain_suffix_list = get_domain_suffix_list()
 site_list = get_site_list()
 print('Total:', len(domain_suffix_list) * len(site_list))
-input()
 pool = Pool(50)
 tasks = [(i, j, site, test_domain + '.' + suffix)
          for i, suffix in enumerate(domain_suffix_list)
